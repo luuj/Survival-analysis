@@ -1,0 +1,83 @@
+---
+title: "BST244 HW2"
+author: "Jonathan Luu"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(survival)
+library(tidyverse)
+library(survminer)
+```
+
+## Problem 1. 
+
+For this homework we will try to estimate survival functions for the time to the first 
+recurrent event (variable Recurrence time) in both treatment arms in the bladder recurrence cancer 
+study. Please also use the first recurrence time as the survival time (variable Recurrence time), and 
+the  corresponding  recurrence  event  as  the  survival  status  (variable  Event,  0  =  censored,  1  = 
+recurrence).  Using  the  same  random  90%-sample  subset  you  used  for  last  homework,  for  each 
+treatment arm:
+
+```{r, comment=NA}
+dat <- read.csv("bladdercancer.csv")
+
+# Get first recurrence
+first_dat <- dat %>% group_by(id) %>% slice(1)
+
+# Sample 90% for each treatment group
+second_dat <- first_dat %>% group_by(Treatment.group) %>% slice_sample(prop=0.9)
+placebo_dat <- second_dat %>% filter(Treatment.group == "1")
+treatment_dat <- second_dat %>% filter(Treatment.group == "2")
+
+# Get ids of both treatment arms
+placebo_dat$id
+treatment_dat$id
+```
+
+\newpage
+```{r}
+# KM Curve
+km_curve = survfit(Surv(Recuerrence.time, Event) ~ Treatment.group, 
+                   type="kaplan-meier", data = second_dat)
+ggsurvplot(km_curve,  xlab="Days", ylab="Survival Probability", 
+           title = "Kaplan-Meier Survival Curve", conf.int=T)
+```
+
+\newpage
+```{r}
+# NA Curve
+na_curve = survfit(Surv(Recuerrence.time, Event) ~ Treatment.group, 
+                   type="fleming-harrington", data = second_dat)
+ggsurvplot(na_curve, xlab="Days", ylab="Survival Probability", 
+           title = "Fleming-Harrington Survival Curve", conf.int = T)
+```
+
+Looks like the confidence intervals plotted for both curves are transformed log intervals.
+
+```{r}
+# RMST for both methods
+print(km_curve, rmean = 60)
+print(na_curve, rmean = 60)
+```
+
+## Problem 2.
+
+Using at least two weighting schemes, test for the null hypothesis that the control and 
+treatment arms have the same survival function. 
+
+```{r}
+# Log-rank test (weight = 1)
+fit <- survfit(Surv(Recuerrence.time, Event) ~ Treatment.group, data = second_dat)
+ggsurvplot(fit, pval = TRUE, pval.method = TRUE)
+
+# Gehan-Breslow (generalized Wilcoxon) 
+ggsurvplot(fit, pval = TRUE, pval.method = TRUE, surv.median.line = "hv",
+           log.rank.weights = "n")
+```
+
+Both tests show that there is not a significant difference in mean survival time between the two treatment groups. 
+
+
+

@@ -1,0 +1,81 @@
+---
+title: "BST244 HW1"
+author: "Jonathan Luu"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(survival)
+library(tidyverse)
+
+outp <- function(est, ci){
+  df <- data.frame(est, ci)
+  colnames(df) <- c("Estimate", "Upper", "Lower")
+  df
+}
+```
+
+## Problem 1. 
+
+For this homework we are going to examine the bladder recurrence cancer study. Baseline and
+outcome information for a subset of 85 patients is available on the course website (bladdercancer.csv and bladderdescription.txt). This data set is from a randomized clinical trial for evaluating a treatment thiotepa with respect to the frequency of tumor recurrence. For each patient, we have treatment code (variable Treatment group, 1= placebo or 2 = thiotepa). At the time of randomization, we have the baseline values for two variables, the number of initial tumors and the size of the largest tumor. We also have the follow up time (which may not be available in the standard survival analysis setting), and the times to the tumor recurrences. Please use the first recurrence time as the survival time (variable Recurrence time), and the corresponding recurrence event as the survival status (variable Event, 0 = censored, 1 = recurrence). Also please further randomly subset to 90% samples for each treatment arm (1 = placebo, 2 = thiotepa), and provide IDs of the samples selected (variable id). For both treatment arms, fit (a) exponential and (b) Weibull models to the survival time. Report the MLE of model parameters and corresponding 95% confidence intervals. There are R functions available (for example, function mle in package stats4) for optimizing a given likelihood function and calculating standard error estimates / confidence intervals.
+
+(Bonus) Feel free to experiment with any other one-sample parametric models you like.
+
+```{r, comment=NA}
+dat <- read.csv("bladdercancer.csv")
+
+# Get first recurrence
+first_dat <- dat %>% group_by(id) %>% slice(1)
+
+# Sample 90% for each treatment group
+second_dat <- first_dat %>% group_by(Treatment.group) %>% slice_sample(prop=0.9)
+placebo_dat <- second_dat %>% filter(Treatment.group == "1")
+treatment_dat <- second_dat %>% filter(Treatment.group == "2")
+
+# Get ids of both treatment arms
+placebo_dat$id
+treatment_dat$id
+```
+
+\newpage
+```{r, comment=NA}
+# Fit exponential model
+exp_ctrl = survreg(Surv(Follow.up.time, Event) ~ 1, dist="exponential", 
+                       data=placebo_dat)
+exp_trt = survreg(Surv(Follow.up.time, Event) ~ 1, dist="exponential", 
+                       data=treatment_dat)
+
+# Exponential control
+outp(exp(-exp_ctrl$coefficients), exp(-confint(exp_ctrl)))
+
+# Exponential treatment
+outp(exp(-exp_trt$coefficients), exp(-confint(exp_trt)))
+```
+
+\newpage
+```{r, comment=NA}
+# Fit weibull model
+weib_ctrl = survreg(Surv(Follow.up.time, Event) ~ 1, dist="weibull", 
+                    data=placebo_dat)
+weib_trt = survreg(Surv(Follow.up.time, Event) ~ 1, dist="weibull", 
+                   data=treatment_dat)
+
+# Weibull control
+outp(exp(-weib_ctrl$coefficients), exp(-confint(weib_ctrl)))
+
+p <- 1/weib_ctrl$scale
+var_scale=weib_ctrl$scale^2*diag(weib_ctrl$var)[2]
+se_p=sqrt( (1/weib_ctrl$scale^2)^2*var_scale )
+outp(p, data.frame(p+1.96*se_p, p-1.96*se_p))
+
+# Weibull treatment
+outp(exp(-weib_trt$coefficients), exp(-confint(weib_trt)))
+
+p <- 1/weib_trt$scale
+var_scale=weib_trt$scale^2*diag(weib_trt$var)[2]
+se_p=sqrt( (1/weib_trt$scale^2)^2*var_scale )
+outp(p, data.frame(p+1.96*se_p, p-1.96*se_p))
+```
+

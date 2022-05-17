@@ -1,0 +1,43 @@
+---
+title: "BST244 HW3"
+author: "Jonathan Luu"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(survival)
+library(tidyverse)
+library(survminer)
+```
+
+## Problem 1. 
+
+Using Cox regression model, analyze the difference between treatment and control arms in the subset of Bladder recurrence cancer samples you used in the last two assignments (also use the first recurrence time as the survival time). You can choose your own covariates to adjust for (covariates: Initial size, Initial number), whether or not to include interaction terms, etc. Provide interpretations for your estimated regression coefficient(s) for treatment vs. control.
+
+```{r, comment=NA}
+set.seed(123)
+dat <- read.csv("bladdercancer.csv")
+
+# Get first recurrence
+first_dat <- dat %>% group_by(id) %>% slice(1)
+
+# Sample 90% for each treatment group
+second_dat <- first_dat %>% group_by(Treatment.group) %>% slice_sample(prop=0.9)
+placebo_dat <- second_dat %>% filter(Treatment.group == "1")
+treatment_dat <- second_dat %>% filter(Treatment.group == "2")
+
+# Get ids of both treatment arms
+placebo_dat$id
+treatment_dat$id
+```
+
+\newpage
+```{r}
+# Fit cox model
+cox.model <- coxph(Surv(Recuerrence.time, Event) ~ Treatment.group + Initial.number + 
+                     Initial.size, data = second_dat)
+summary(cox.model)
+```
+
+I chose to use both initial number and initial size as covariates; however, I did not include any interaction terms. According to this model, we estimate that treatment is associated with a hazard of recurrence that is 0.53 times as high as the control, holding other covariates constant. With 95% certainty, we estimate that this ratio is between 0.27 and 1.05.
